@@ -1,5 +1,6 @@
 import random
 import os
+import msvcrt
 from enum import Enum
 
 class TileType(Enum):
@@ -618,6 +619,11 @@ class Game:
         self.game_over = False
         self.victory = False
         self.monsters_attacked_this_turn = set()
+
+    def get_single_key(self):
+        """Get a single key press and return as uppercase string"""
+        key = msvcrt.getch()
+        return key.decode('utf-8').upper()
         
     def display_map(self):
         print(f"\n=== Floor {self.current_floor} ===")
@@ -1215,49 +1221,29 @@ class Game:
             self.display_player_status()
             self.display_gear()
 
-            print("\nWhat would you like to do?")
-            print("1. Move")
-            print("2. Attack")
-            print("3. Ranged Attack")
-            print("4. Use Stairs (descend)")
-            print("5. Flee")
-            print("6. Quit")
+            print("\nActions: WASD to move, T to attack, R for ranged attack, F for stairs, Q to quit")
 
-            choice = input("Choose (1-6): ").strip()
+            choice = self.get_single_key()
 
-            if choice == "1":
-                print("\nMove direction:")
-                print("W - Up")
-                print("A - Left")
-                print("S - Down")
-                print("D - Right")
-                dir_choice = input("Choose direction (W/A/S/D): ").strip().upper()
-
+            if choice in ['W', 'A', 'S', 'D']:
                 direction_map = {'W': Direction.UP, 'A': Direction.LEFT,
                                'S': Direction.DOWN, 'D': Direction.RIGHT}
+                self.handle_move(direction_map[choice])
 
-                if dir_choice in direction_map:
-                    self.handle_move(direction_map[dir_choice])
-                else:
-                    print("Invalid direction!")
-
-            elif choice == "2":
+            elif choice == "T":
                 self.handle_attack()
 
-            elif choice == "3":
+            elif choice == "R":
                 self.handle_ranged_attack()
 
-            elif choice == "4":
+            elif choice == "F":
                 self.use_stairs()
 
-            elif choice == "5":
-                print("You flee from combat!")  # Would need combat context
-
-            elif choice == "6":
+            elif choice == "Q":
                 print("Thanks for playing!")
                 break
             else:
-                print("Invalid choice!")
+                print("Invalid action! Use WASD for movement, T/R/F for actions, Q to quit.")
 
             # Handle adjacent monster attacks after player action
             if not self.game_over:
@@ -1268,7 +1254,7 @@ class Game:
                 self.game_over = True
                 print(f"\nGame Over! You reached floor {self.current_floor}")
                 print(f"Max floor mapped: {self.player.max_floor_mapped}")
-        
+
         if self.victory:
             print("\n*** VICTORY! ***")
             print("You have slain the Red Dragon and saved your village!")
