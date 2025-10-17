@@ -85,11 +85,11 @@ Python 3.6 or higher
 Windows OS (uses msvcrt for keyboard input)
 
 Running the Game
-Download the one_dice_dungeon_delve.py file
+Download the oddd.py file
 
 Open a terminal/command prompt
 
-Run: python one_dice_dungeon_delve.py
+Run: python oddd.py
 
 🏆 Victory Condition
 Defeat the Red Dragon that awaits on the deepest floor to win the game and save your village!
