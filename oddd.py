@@ -348,9 +348,13 @@ class Tile:
 
         # Show doors based on actual connections
         if self.doors[Direction.UP]:
-            grid[0][2] = ' '  # Open passage up
+            grid[0][1] = ' '  # Open passage up (wider)
+            grid[0][2] = ' '
+            grid[0][3] = ' '
         if self.doors[Direction.DOWN]:
-            grid[2][2] = ' '  # Open passage down
+            grid[2][1] = ' '  # Open passage down (wider)
+            grid[2][2] = ' '
+            grid[2][3] = ' '
         if self.doors[Direction.LEFT]:
             grid[1][0] = ' '  # Open passage left
         if self.doors[Direction.RIGHT]:
