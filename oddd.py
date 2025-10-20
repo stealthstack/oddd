@@ -471,15 +471,18 @@ class Dungeon:
             if distance <= 4:
                 # Roll for tile shape based on card system
                 shape = self.roll_tile_shape()
-                adjacent_tile = Tile(new_x, new_y, TileType.EMPTY, shape)
+                # Dead-end tiles should always include stairs
+                tile_type = TileType.STAIRS if shape == TileShape.DEAD_END else TileType.EMPTY
+                adjacent_tile = Tile(new_x, new_y, tile_type, shape)
                 self.grid[(new_x, new_y)] = adjacent_tile
 
                 # Configure doors based on shape and entrance direction
                 entrance_direction = self.get_opposite_direction(direction)
                 adjacent_tile.configure_doors_from_shape(entrance_direction)
 
-                # Populate the adjacent tile
-                self.populate_tile(adjacent_tile)
+                # Populate the adjacent tile (stairs don't get populated)
+                if tile_type != TileType.STAIRS:
+                    self.populate_tile(adjacent_tile)
 
                 # Reveal these starting tiles
                 adjacent_tile.revealed = True
@@ -751,9 +754,8 @@ class Game:
                 # Heal after defeating monster
                 self.player.heal(self.player.max_hp - self.player.current_hp)
                 # Get loot from monster
-                if random.randint(1, 6) >= 3:  # 50% chance for loot
-                    loot = self.dungeon.generate_loot()
-                    self.get_loot(loot)
+                loot = self.dungeon.generate_loot()
+                self.get_loot(loot)
             return monster_killed
         return False
     
@@ -793,7 +795,7 @@ class Game:
     
     def get_loot(self, loot):
         print(f"\nYou found: {loot}")
-        
+
         if isinstance(loot, Gem):
             # Auto-socket if possible
             socketed = False
@@ -803,42 +805,73 @@ class Game:
                     print(f"Socketed {loot} into {item.type.value}")
                     socketed = True
                     break
-            
+
             if not socketed:
                 print("No available sockets for this gem.")
-                
+
         elif isinstance(loot, Gear):
             # Let player decide what to do with gear
-            print("\nWhat would you like to do?")
+            slot = self.get_slot_for_gear(loot.type)
+            if slot is None:
+                print("You cannot equip this item right now.")
+                return
+
+            current_item = self.player.gear[slot]
+            new_bonus = loot.get_total_bonus()
+            current_bonus = current_item.get_total_bonus() if current_item and isinstance(current_item, Gear) else 0
+            bonus_change = new_bonus - current_bonus
+
+            # Determine stat
+            stat = None
+            if slot in ['helm', 'chest'] or (slot == 'weapon2' and loot.type == GearType.SHIELD):
+                stat = 'armor'
+            elif slot in ['weapon1'] or (slot == 'weapon2' and loot.type in [GearType.SWORD, GearType.GREATSWORD]):
+                stat = 'attack'
+
+            if stat:
+                if bonus_change > 0:
+                    print(f"Equip it? +{bonus_change} {stat}")
+                elif bonus_change < 0:
+                    print(f"Equip it? -{abs(bonus_change)} {stat}")
+                else:
+                    print("Equip it? No change")
+            else:
+                print("Equip it?")
+
             print("1. Equip it")
             print("2. Leave it")
-            
+
             choice = input("Choose (1-2): ").strip()
             if choice == "1":
                 self.equip_gear(loot)
     
+    def get_slot_for_gear(self, gear_type):
+        if gear_type == GearType.HELM:
+            return 'helm'
+        elif gear_type == GearType.CHEST:
+            return 'chest'
+        elif gear_type == GearType.SHIELD:
+            # Shield goes to weapon2 if weapon1 has sword/greatsword
+            current_weapon1 = self.player.gear.get('weapon1')
+            if current_weapon1 and isinstance(current_weapon1, Gear) and current_weapon1.type in [GearType.SWORD, GearType.GREATSWORD]:
+                return 'weapon2'
+            else:
+                return None
+        elif gear_type in [GearType.SWORD, GearType.GREATSWORD]:
+            return 'weapon1'
+        elif gear_type in [GearType.CROSSBOW, GearType.GREATBOW]:
+            return 'ranged1'
+        return None
+
     def equip_gear(self, gear):
-        slot = None
+        slot = self.get_slot_for_gear(gear.type)
 
-        if gear.type in [GearType.HELM]:
-            slot = 'helm'
-        elif gear.type in [GearType.CHEST]:
-            slot = 'chest'
-        elif gear.type in [GearType.SHIELD]:
-            # For shield, we need to handle weapon slots
-            current = self.player.gear['weapon1']
-            if current and isinstance(current, Gear) and current.type in [GearType.SWORD, GearType.GREATSWORD]:
-                slot = 'weapon2'  # Shield goes in off-hand
-        elif gear.type in [GearType.SWORD, GearType.GREATSWORD]:
-            slot = 'weapon1'
-        elif gear.type in [GearType.CROSSBOW, GearType.GREATBOW]:
-            slot = 'ranged1'
-
-        if slot and self.player.gear[slot] is None:
+        if slot:
+            old_item = self.player.gear[slot]
             self.player.gear[slot] = gear
             print(f"Equipped {gear} in {slot}")
         else:
-            print("Cannot equip this item - no suitable slot or slot occupied")
+            print("Cannot equip this item - no suitable slot")
     
     def reveal_tile_and_adjacent(self, x, y):
         """Reveal the tile at (x,y) and all adjacent tiles"""
@@ -925,8 +958,12 @@ class Game:
 
             # Check if there's a monster blocking the way
             if new_tile.monster and new_tile.monster.alive:
-                print("You cannot move there - there's a monster blocking the way!")
-                return
+                # Attack the monster instead of blocking
+                monster_killed = self.player_attack_monster(new_tile.monster)
+                if not monster_killed:
+                    # Monster still alive, cannot move
+                    return
+                # Monster died, proceed with move
 
             # Move player
             self.player.move(dx, dy)
@@ -1035,6 +1072,10 @@ class Game:
             # Use entrance-aware roll to favor shapes that make sense
             entrance_direction = self.dungeon.get_opposite_direction(direction)
             shape = self.dungeon.roll_tile_shape_for_entrance(entrance_direction)
+
+        # Dead-end tiles should always include stairs
+        if shape == TileShape.DEAD_END and tile_type == TileType.EMPTY:
+            tile_type = TileType.STAIRS
 
         # Create the tile with proper shape
         new_tile = Tile(x, y, tile_type, shape)
@@ -1225,7 +1266,7 @@ class Game:
             self.display_player_status()
             self.display_gear()
 
-            print("\nActions: WASD to move, T to attack, R for ranged attack, F for stairs, Q to quit")
+            print("\nActions: WASD to move, R for ranged attack, F for stairs, Q to quit")
 
             choice = self.get_single_key()
 
@@ -1234,8 +1275,7 @@ class Game:
                                'S': Direction.DOWN, 'D': Direction.RIGHT}
                 self.handle_move(direction_map[choice])
 
-            elif choice == "T":
-                self.handle_attack()
+
 
             elif choice == "R":
                 self.handle_ranged_attack()
