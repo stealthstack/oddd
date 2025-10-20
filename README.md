@@ -22,6 +22,8 @@ Procedural Generation: Every floor is uniquely generated using dice-based room s
 
 Turn-Based Combat: Strategic combat with dice-roll resolution system
 
+Smart Monster AI: Monsters pathfind toward the player through dungeon corridors
+
 Equipment System: Collect and upgrade gear with socketable gems
 
 Character Progression: Level up your hero with improved stats and abilities
@@ -33,33 +35,44 @@ Dice-Based Resolution: Combat outcomes determined by dice rolls + character stat
 
 Multiple Damage Types: Miss, Half Damage, Hit, and Critical Hit results
 
-Melee & Ranged Options: Choose between close-quarters and distance attacks
+Ranged Combat: Attack monsters from a distance with line-of-sight mechanics
 
 Monster Variety: Face Goblins, Skeletons, Minotaurs, and the fearsome Red Dragon
+
+Dynamic Encounters: Monsters move toward you and attack through open doors
 
 Equipment & Loot
 Gear Types: Helms, Chestplates, Swords, Greatswords, Crossbows, Greatbows, and Shields
 
-Gem Socketing: Enhance gear with Green, Blue, and Purple gems for bonus stats
+Visual Socket System: See filled (●) and empty (○) sockets on your gear
+
+Gem Socketing: Enhance gear with Green (+1), Blue (+2), and Purple (+3) gems
 
 Special Materials: Adamantine and Dragonscale gear with powerful bonuses
 
-Inventory Management: Strategic equipment choices for optimal builds
+Smart Looting: Automatic gem socketing and gear comparison
 
 🕹️ How to Play
 Controls
 WASD: Move through the dungeon (Up, Left, Down, Right)
 
-T: Attack adjacent monsters (melee)
-
-R: Perform ranged attacks (line of sight)
+R: Perform ranged attacks (line of sight, 1-3 tiles)
 
 F: Use stairs to descend to next floor
 
 Q: Quit game
 
+Movement & Combat
+Auto-Attack: Moving into a monster's tile automatically attacks it
+
+Ranged Attacks: Hit monsters from a distance without moving
+
+Monster Behavior: Monsters will pathfind toward you and attack through open doors
+
+Safe Zone: The starting tile (0,0) is safe from monster attacks
+
 Objectives
-Explore each floor to reveal the map
+Explore each 5x5 floor to reveal the map
 
 Defeat monsters to gain experience and loot
 
@@ -69,20 +82,13 @@ Find and clear the Lair to reveal stairs
 
 Descend deeper to face the final boss
 
-Game Mechanics
-Vision System: Rooms are revealed as you explore adjacent areas
-
-Monster Awareness: Adjacent monsters will attack you on their turn
-
-Healing: Fully heal after defeating monsters
-
-Leveling: Gain experience to increase level, max HP, and base stats
-
 🛠️ Installation
 Requirements
 Python 3.6 or higher
 
 Windows OS (uses msvcrt for keyboard input)
+
+Terminal/Command Prompt that supports ANSI color codes
 
 Running the Game
 Download the oddd.py file
@@ -91,21 +97,8 @@ Open a terminal/command prompt
 
 Run: python oddd.py
 
-🏆 Victory Condition
-Defeat the Red Dragon that awaits on the deepest floor to win the game and save your village!
-
-📊 Character Stats
-Level: Determines base armor and attack
-
-HP: Health points - game over if reaches 0
-
-Attack: Bonus added to combat rolls
-
-Armor: Reduces damage taken from monsters
-
-Experience: Gain from defeating monsters to level up
-
-🎯 Combat Resolution
+🎯 Game Mechanics
+Combat Resolution
 Combat uses a dice-roll plus stat system:
 
 Roll 1d6 + your attack vs monster armor
@@ -118,10 +111,56 @@ Total = Armor: Half Damage
 
 Total < Armor: Miss
 
-🗺️ Map Symbols
+Character Stats
+Level: Determines base armor and attack
+
+HP: Health points - game over if reaches 0
+
+Attack: Bonus added to combat rolls
+
+Armor: Reduces damage taken from monsters
+
+Experience: Gain from defeating monsters to level up
+
+Monster Types & Stats
+Goblin: 5+floor HP, floor ATK/ARM, 2 EXP
+
+Skeleton: 7+floor HP, floor+1 ATK/ARM, 3 EXP
+
+Minotaur: 12+floor HP, floor+4 ATK/ARM, 6 EXP
+
+Red Dragon: 20+floor HP, floor+6 ATK/ARM, 12 EXP
+
+🗺️ Map Symbols & Colors
+Colors
+🟠 Orange: Player
+
+🟢 Bright Green: Goblins
+
+🔵 Bright Blue: Skeletons
+
+🟡 Gold: Minotaurs
+
+🔴 Bright Red: Red Dragon
+
+🟡 Bright Yellow: Loot
+
+🔵 Bright Blue: Lair
+
+⚪ Gray: Stairs
+
+⚫ Dim Gray: Unexplored areas
+
+Symbols
 P: Player position
 
-M: Monster
+G: Goblin
+
+S: Skeleton
+
+M: Minotaur
+
+D: Red Dragon
 
 !: Loot
 
@@ -133,26 +172,19 @@ L: Lair (boss room)
 
 █: Walls
 
-␣: Open passages
 
-🎨 Technical Details
-Pure Python: No external dependencies required
+🎨 Technical Features
+ANSI Color Support: Enhanced visual accessibility with color-coded elements
 
-Object-Oriented Design: Clean class structure for game entities
+Pathfinding AI: Monsters use BFS to find shortest paths to the player
 
-Procedural Generation: Dice-based room shapes and content placement
+Procedural Generation: Dice-based room shapes and intelligent door placement
 
-ASCII Graphics: Text-based visualization using extended ASCII characters
+Line-of-Sight: Ranged attacks and vision follow dungeon geometry
 
-📝 Development
-This game was developed as a Python implementation of a dice/card-based dungeon crawling concept, featuring:
+Smart Equipment: Automatic gear comparison and socket management
 
-Modular room generation system
-
-Expandable monster and gear types
-
-Comprehensive combat mechanics
-
-Intuitive text-based interface
+🏆 Victory Condition
+Defeat the Red Dragon that awaits in the lair to win the game and save your village!
 
 Grab your dice and prepare to delve into the ever-changing dungeon! Your village is counting on you, hero!
