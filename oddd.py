@@ -2,6 +2,24 @@ import random
 import os
 import msvcrt
 from enum import Enum
+from collections import deque
+
+# ANSI color codes for better visual accessibility
+class Colors:
+    RESET = '\033[0m'
+    # Bright colors for important elements
+    BRIGHT_YELLOW = '\033[93m'  # Player
+    BRIGHT_RED = '\033[91m'    # Red Dragon
+    BRIGHT_GREEN = '\033[92m'  # Goblin
+    BRIGHT_WHITE = '\033[97m'  # Skeleton
+    BRIGHT_MAGENTA = '\033[95m' # Loot
+    BRIGHT_CYAN = '\033[96m'   # Minotaur
+    BRIGHT_BLUE = '\033[94m'   # Lair
+    ORANGE = '\033[38;5;208m'  # Player
+    GOLD = '\033[93m'          # Minotaur
+    # Dim colors for less important elements
+    DIM_GRAY = '\033[90m'      # Walls, unexplored
+    GRAY = '\033[37m'          # Stairs
 
 class TileType(Enum):
     EMPTY = "."
@@ -111,19 +129,53 @@ class Gear:
         return False
 
     def __str__(self):
-        socket_str = f" [{len(self.sockets)}/{self.max_sockets} sockets]" if self.sockets else ""
-        return f"{self.type.value} +{self.get_total_bonus()}{socket_str}"
+        socket_visual = ""
+        for i in range(self.max_sockets):
+            if i < len(self.sockets):
+                gem = self.sockets[i]
+                if gem.color == GemColor.GREEN:
+                    socket_visual += "\033[32m●\033[0m"  # Green filled circle
+                elif gem.color == GemColor.BLUE:
+                    socket_visual += "\033[34m●\033[0m"  # Blue filled circle
+                elif gem.color == GemColor.PURPLE:
+                    socket_visual += "\033[35m●\033[0m"  # Purple filled circle
+            else:
+                socket_visual += "○"  # Empty circle
+        return f"{self.type.value} +{self.get_total_bonus()} {socket_visual}"
 
 class Monster:
     def __init__(self, monster_type: MonsterType, floor_level=1):
         self.type = monster_type
         self.floor_level = floor_level
-        # simple stats scaling
-        self.armor = floor_level
-        self.attack = floor_level
-        self.hp = 3 + floor_level
         self.alive = True
-        self.exp = 1 + floor_level // 2
+
+        # Set stats based on monster type according to rules
+        if monster_type == MonsterType.GOBLIN:
+            self.hp = 5 + floor_level
+            self.attack = floor_level
+            self.armor = floor_level
+            self.exp = 2
+        elif monster_type == MonsterType.SKELETON:
+            self.hp = 7 + floor_level
+            self.attack = floor_level + 1
+            self.armor = floor_level + 1
+            self.exp = 3
+        elif monster_type == MonsterType.MINOTAUR:
+            self.hp = 12 + floor_level
+            self.attack = floor_level + 4
+            self.armor = floor_level + 4
+            self.exp = 6
+        elif monster_type == MonsterType.DRAGON:
+            self.hp = 20 + floor_level
+            self.attack = floor_level + 6
+            self.armor = floor_level + 6
+            self.exp = 12
+        else:
+            # Default for any other monsters
+            self.hp = 3 + floor_level
+            self.attack = floor_level
+            self.armor = floor_level
+            self.exp = 1 + floor_level // 2
 
     def take_damage(self, amount):
         self.hp -= amount
@@ -318,7 +370,7 @@ class Tile:
         ]
 
         # Center character - show player or tile contents
-        center_char = 'P' if show_player else self.get_center_symbol()
+        center_char = f"{Colors.ORANGE}P{Colors.RESET}" if show_player else self.get_center_symbol()
         grid[1][1] = center_char
 
         # Show doors based on actual connections
@@ -343,7 +395,8 @@ class Tile:
         ]
 
         # Center character - show player or tile contents
-        center_char = 'P' if show_player else self.get_center_symbol()
+        center_char = f"{Colors.ORANGE}P{Colors.RESET}" if show_player else self.get_center_symbol()
+
         grid[1][2] = center_char
 
         # Show doors based on actual connections
@@ -360,22 +413,47 @@ class Tile:
         if self.doors[Direction.RIGHT]:
             grid[1][4] = ' '  # Open passage right
 
+        # Special representation for starting tile: use lines for doors
+        if self.x == 0 and self.y == 0:
+            if self.doors[Direction.UP]:
+                grid[0][1] = '-'
+                grid[0][2] = '-'
+                grid[0][3] = '-'
+            if self.doors[Direction.DOWN]:
+                grid[2][1] = '-'
+                grid[2][2] = '-'
+                grid[2][3] = '-'
+            if self.doors[Direction.LEFT]:
+                grid[1][0] = '|'
+            if self.doors[Direction.RIGHT]:
+                grid[1][4] = '|'
+
         return grid
 
     def get_center_symbol(self):
         """Get symbol that represents the tile type and shape"""
         if not self.revealed:
-            return '?'  # Unexplored
+            return f"{Colors.DIM_GRAY}?{Colors.RESET}"  # Unexplored
 
         # Show content priority: monster > loot > special
         if self.monster and self.monster.alive:
-            return 'M'  # Monster
+            # Return colored single-width text symbols for monster types
+            if self.monster.type == MonsterType.GOBLIN:
+                return f"{Colors.BRIGHT_GREEN}G{Colors.RESET}"
+            elif self.monster.type == MonsterType.SKELETON:
+                return f"{Colors.BRIGHT_BLUE}S{Colors.RESET}"
+            elif self.monster.type == MonsterType.MINOTAUR:
+                return f"{Colors.GOLD}M{Colors.RESET}"
+            elif self.monster.type == MonsterType.DRAGON:
+                return f"{Colors.BRIGHT_RED}D{Colors.RESET}"
+            else:
+                return f"{Colors.BRIGHT_RED}M{Colors.RESET}"  # Fallback for other monsters
         if self.loot:
-            return '!'  # Loot
+            return f"{Colors.BRIGHT_YELLOW}!{Colors.RESET}"  # Loot
         if self.type == TileType.STAIRS:
-            return 'S'  # Stairs
+            return f"{Colors.GRAY}S{Colors.RESET}"  # Stairs
         if self.type == TileType.LAIR:
-            return 'L'  # Lair
+            return f"{Colors.BRIGHT_BLUE}L{Colors.RESET}"  # Lair
 
         # For empty rooms, no shape symbol needed since walls show the shape
         return ' '  # Default empty
@@ -480,7 +558,7 @@ class Dungeon:
                 entrance_direction = self.get_opposite_direction(direction)
                 adjacent_tile.configure_doors_from_shape(entrance_direction)
 
-                # Populate the adjacent tile (stairs don't get populated)
+                # Populate the adjacent tile (stairs dond't get populated)
                 if tile_type != TileType.STAIRS:
                     self.populate_tile(adjacent_tile)
 
@@ -626,6 +704,8 @@ class Game:
         self.game_over = False
         self.victory = False
         self.monsters_attacked_this_turn = set()
+        self.just_used_stairs = False
+        self.messages = []
 
     def get_single_key(self):
         """Get a single key press and return as uppercase string"""
@@ -691,7 +771,12 @@ class Game:
     
     def display_player_status(self):
         print(f"\nPlayer: Level {self.player.level}")
-        print(f"HP: {self.player.current_hp}/{self.player.max_hp}")
+        hp_color = Colors.RESET
+        if self.player.current_hp <= self.player.max_hp // 2:
+            hp_color = Colors.BRIGHT_YELLOW
+        if self.player.current_hp < self.player.max_hp // 2:
+            hp_color = Colors.BRIGHT_RED
+        print(f"HP: {hp_color}{self.player.current_hp}{Colors.RESET}/{self.player.max_hp}")
         print(f"Attack: {self.player.calculate_attack()} (Melee), {self.player.calculate_attack(ranged=True)} (Ranged)")
         print(f"Armor: {self.player.calculate_armor()}")
         print(f"Exp: {self.player.exp}/{self.player.exp_needed}")
@@ -737,7 +822,7 @@ class Game:
 
         damage = player_attack * multiplier
         if result == DamageResult.CRIT:
-            print(f"CRITICAL HIT! (Rolled {dice_roll} + {player_attack} = {dice_roll + player_attack})")
+            print(f"{Colors.BRIGHT_RED}CRITICAL HIT!{Colors.RESET} (Rolled {dice_roll} + {player_attack} = {dice_roll + player_attack})")
         elif result == DamageResult.HIT:
             print(f"Hit! (Rolled {dice_roll} + {player_attack} = {dice_roll + player_attack} vs Armor {monster.armor})")
         elif result == DamageResult.HALF:
@@ -770,15 +855,13 @@ class Game:
 
         result, multiplier = self.combat_roll(monster.attack, player_armor, dice_roll)
 
-        damage = 1 * multiplier
+        damage = monster.attack * multiplier
         if result == DamageResult.CRIT:
-            print(f"CRITICAL HIT! (Monster rolled {dice_roll} + {monster.attack} = {dice_roll + monster.attack})")
-            damage = 2
+            print(f"{Colors.BRIGHT_RED}CRITICAL HIT!{Colors.RESET} (Monster rolled {dice_roll} + {monster.attack} = {dice_roll + monster.attack})")
         elif result == DamageResult.HIT:
             print(f"Hit! (Monster rolled {dice_roll} + {monster.attack} = {dice_roll + monster.attack} vs your Armor {player_armor})")
         elif result == DamageResult.HALF:
             print(f"Glancing blow! (Monster rolled {dice_roll} + {monster.attack} = {dice_roll + monster.attack} vs your Armor {player_armor})")
-            damage = 0.5
         else:  # MISS
             print(f"Miss! (Monster rolled {dice_roll} + {monster.attack} = {dice_roll + monster.attack} vs your Armor {player_armor})")
             damage = 0
@@ -921,6 +1004,10 @@ class Game:
 
     def handle_adjacent_monster_attacks(self):
         """Check for adjacent monsters and have them attack the player"""
+        # Starting tile is safe - no automatic attacks from adjacent monsters
+        if (self.player.x, self.player.y) == self.dungeon.player_start:
+            return
+
         current_tile = self.dungeon.grid.get((self.player.x, self.player.y))
         adjacent_monsters = []
         for direction in Direction:
@@ -939,9 +1026,9 @@ class Game:
     def handle_move(self, direction):
         dx, dy = direction.value
         new_x, new_y = self.player.x + dx, self.player.y + dy
-        
+
         current_tile = self.dungeon.grid.get((self.player.x, self.player.y))
-        
+
         if current_tile and current_tile.has_door(direction):
             # Check if target tile exists
             if (new_x, new_y) not in self.dungeon.grid:
@@ -961,7 +1048,8 @@ class Game:
                 # Attack the monster instead of blocking
                 monster_killed = self.player_attack_monster(new_tile.monster)
                 if not monster_killed:
-                    # Monster still alive, cannot move
+                    # Monster still alive, it retaliates and blocks movement
+                    self.monster_attack_player(new_tile.monster)
                     return
                 # Monster died, proceed with move
 
@@ -999,9 +1087,57 @@ class Game:
 
             # Reveal vision from new position
             self.reveal_vision(new_x, new_y)
-            
+
         else:
             print("There's no door in that direction!")
+
+    def find_path(self, start_x, start_y, goal_x, goal_y):
+        """Find shortest path from start to goal using BFS, following dungeon doors"""
+        queue = deque([(start_x, start_y, [(start_x, start_y)])])
+        visited = set()
+        visited.add((start_x, start_y))
+
+        while queue:
+            x, y, path = queue.popleft()
+            if (x, y) == (goal_x, goal_y):
+                return path
+
+            tile = self.dungeon.grid.get((x, y))
+            if not tile:
+                continue
+
+            for direction in Direction:
+                if tile.doors[direction]:
+                    dx, dy = direction.value
+                    nx, ny = x + dx, y + dy
+                    if (nx, ny) not in visited and (nx, ny) in self.dungeon.grid:
+                        visited.add((nx, ny))
+                        new_path = path + [(nx, ny)]
+                        queue.append((nx, ny, new_path))
+        return None
+
+    def move_monsters_towards_player(self):
+        """Move all monsters 1 tile towards the player, following dungeon paths"""
+        # Collect all monsters to move
+        monsters_to_move = []
+        for tile in self.dungeon.grid.values():
+            if tile.monster and tile.monster.alive:
+                monsters_to_move.append((tile.x, tile.y, tile.monster))
+
+        # Move each monster
+        for mx, my, monster in monsters_to_move:
+            # Find path to player
+            path = self.find_path(mx, my, self.player.x, self.player.y)
+            if path and len(path) > 2:  # Only move if more than 1 tile away (not adjacent)
+                # Next position in path
+                nx, ny = path[1]
+                # Check if valid move: not starting tile, not occupied by player or another monster
+                target_tile = self.dungeon.grid.get((nx, ny))
+                if target_tile and (nx, ny) != self.dungeon.player_start and not target_tile.monster and (nx, ny) != (self.player.x, self.player.y):
+                    # Move monster
+                    old_tile = self.dungeon.grid[(mx, my)]
+                    old_tile.monster = None
+                    target_tile.monster = monster
     
     def generate_and_reveal_connected_tiles(self, x, y, tile):
         """Generate and reveal tiles connected to this tile based on its doors"""
@@ -1096,12 +1232,15 @@ class Game:
     def display_map_legend(self):
         print("\n--- Map Legend ---")
         print("P = Player")
-        print("M = Monster")
+        print("G = Goblin")
+        print("S = Skeleton")
+        print("M = Minotaur")
+        print("D = Red Dragon")
         print("! = Loot")
         print("S = Stairs")
         print("L = Lair")
         print("? = Unexplored")
-        print("# = Wall")
+        print("█ = Wall")
     
     def handle_attack(self):
         current_tile = self.dungeon.grid.get((self.player.x, self.player.y))
@@ -1250,6 +1389,7 @@ class Game:
             self.player.floor_level = self.current_floor
             # Reset player position to start of new floor
             self.player.x, self.player.y = self.dungeon.player_start
+            self.just_used_stairs = True
         else:
             print("There are no stairs here!")
     
@@ -1257,12 +1397,12 @@ class Game:
         print("=== One Dice Dungeon Delve ===")
         print("Your village needs a hero! Map the dungeon and slay the Red Dragon!")
         self.display_map_legend()
+        self.display_map()  # Show initial map
 
         while not self.game_over and not self.victory:
             # Clear monsters attacked this turn at start of each player turn
             self.monsters_attacked_this_turn = set()
 
-            self.display_map()
             self.display_player_status()
             self.display_gear()
 
@@ -1289,9 +1429,17 @@ class Game:
             else:
                 print("Invalid action! Use WASD for movement, T/R/F for actions, Q to quit.")
 
-            # Handle adjacent monster attacks after player action
+            # Display updated map after player action
             if not self.game_over:
-                self.handle_adjacent_monster_attacks()
+                self.display_map()
+
+            # Handle monster movement and attacks after player action
+            if not self.game_over:
+                if self.just_used_stairs:
+                    self.just_used_stairs = False
+                else:
+                    self.handle_adjacent_monster_attacks()  # Attack adjacent monsters first
+                    self.move_monsters_towards_player()  # Then move non-adjacent monsters
 
             # Check for game over
             if self.player.current_hp <= 0:
